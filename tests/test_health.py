@@ -1,11 +1,7 @@
 from fastapi.testclient import TestClient
 
-from customer_service_agent.main import app
 
-client = TestClient(app)
-
-
-def test_health_endpoint() -> None:
+def test_health_endpoint(client: TestClient) -> None:
     response = client.get("/api/health")
 
     assert response.status_code == 200
@@ -15,7 +11,7 @@ def test_health_endpoint() -> None:
     }
 
 
-def test_get_missing_conversation_returns_404() -> None:
+def test_get_missing_conversation_returns_404(client: TestClient) -> None:
     response = client.get("/api/conversations/00000000-0000-0000-0000-000000000000")
 
     assert response.status_code == 404

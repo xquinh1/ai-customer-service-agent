@@ -33,4 +33,3 @@ class ConversationRepository:
 
     async def delete(self, conversation: Conversation) -> None:
         await self.session.delete(conversation)
-        await self.session.commit()

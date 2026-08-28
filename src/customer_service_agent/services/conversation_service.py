@@ -1,5 +1,6 @@
 from uuid import UUID
 
+from customer_service_agent.core.exceptions import NotFoundError
 from customer_service_agent.db.models import Conversation
 from customer_service_agent.repositories.conversation_repository import (
     ConversationRepository,
@@ -22,7 +23,7 @@ class ConversationService:
         conversation = await self.repository.get_by_id(conversation_id)
 
         if conversation is None:
-            raise ValueError("Conversation not found")
+            raise NotFoundError("Conversation not found")
 
         return conversation
 
@@ -30,6 +31,7 @@ class ConversationService:
         conversation = await self.repository.get_by_id(conversation_id)
 
         if conversation is None:
-            raise ValueError("Conversation not found")
+            raise NotFoundError("Conversation not found")
 
         await self.repository.delete(conversation)
+        await self.repository.session.commit()
