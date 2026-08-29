@@ -1,7 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from customer_service_agent.db.connection import get_db_session
@@ -61,32 +61,19 @@ async def get_conversation(
     conversation_id: UUID,
     service: Annotated[ConversationService, Depends(get_conversation_service)],
 ) -> ConversationResponse:
-    try:
-        conversation = await service.get_conversation(conversation_id)
-    except ValueError as error:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(error),
-        ) from error
-
+    conversation = await service.get_conversation(conversation_id)
     return ConversationResponse.model_validate(conversation)
+
 
 @router.delete(
     "/{conversation_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
-
 async def delete_conversation(
     conversation_id: UUID,
     service: Annotated[
         ConversationService,
         Depends(get_conversation_service),
-    ]
+    ],
 ) -> None:
-    try:
-        await service.delete_conversation(conversation_id)
-    except ValueError as error:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(error),
-        ) from error
+    await service.delete_conversation(conversation_id)
