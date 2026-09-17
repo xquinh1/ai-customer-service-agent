@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from customer_service_agent.core.config import get_settings
 from customer_service_agent.knowledge.embeddings import EmbeddingService
 from customer_service_agent.rag.context_builder import build_context
-from customer_service_agent.rag.retrieval import search_chunks
+from customer_service_agent.rag.fusion import hybrid_search
 
 SYSTEM_PROMPT = """You are a Shopify support assistant.
     Answer the user's question using ONLY the documentation context provided.
@@ -39,9 +39,7 @@ async def answer_question(
         base_url=settings.openai_base_url,
     )
 
-    query_vector = (await embedder.embed([question]))[0]
-
-    result = await search_chunks(session, query_vector, limit=limit)
+    result = await hybrid_search(session, question, embedder=embedder, limit=limit)
 
     context, citations = build_context(result)
 
