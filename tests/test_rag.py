@@ -1,6 +1,7 @@
 import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from types import SimpleNamespace
 from uuid import uuid4
 
 from sqlalchemy import delete
@@ -10,11 +11,26 @@ from customer_service_agent.core.config import get_settings
 from customer_service_agent.db.models import Document, DocumentChunk
 from customer_service_agent.rag.context_builder import build_context
 from customer_service_agent.rag.fusion import reciprocal_rank_fusion
+from customer_service_agent.rag.reranking import rerank
 from customer_service_agent.rag.retrieval import lexical_search
 
 
 def _chunk(title: str) -> DocumentChunk:
     return DocumentChunk(id=uuid4(), content=title, source_url="https://u", title=title)
+
+
+class _FakeChatClient:
+    """Gia lap client OpenAI - tra ve JSON do MINH quyet dinh, khong goi API that."""
+
+    def __init__(self, payload: str) -> None:
+        self._payload = payload
+        self.requests: list[dict[str, object]] = []
+        self.chat = SimpleNamespace(completions=SimpleNamespace(create=self._create))
+
+    async def _create(self, **kwargs: object) -> object:
+        self.requests.append(kwargs)
+        message = SimpleNamespace(content=self._payload)
+        return SimpleNamespace(choices=[SimpleNamespace(message=message)])
 
 
 def test_build_context_numbers_chunks_and_keeps_citations() -> None:
@@ -128,3 +144,42 @@ def test_lexical_search_returns_nothing_without_shared_words() -> None:
             return [chunk.title for chunk, _rank in found]
 
     assert asyncio.run(scenario()) == []
+
+
+def test_rerank_orders_by_score() -> None:
+    a, b, c = _chunk("A"), _chunk("B"), _chunk("C")
+    fake = _FakeChatClient(
+        '{"scores": [{"index": 1, "score": 2}, {"index": 2, "score": 9}, {"index": 3, "score": 5}]}'
+    )
+
+    ranked = asyncio.run(
+        rerank("q", [a, b, c], client=fake, model="fake", limit=2)  # type: ignore[arg-type]
+    )
+
+    assert [item.chunk.title for item in ranked] == ["B", "C"]
+    assert [item.relevance_score for item in ranked] == [9.0, 5.0]
+
+
+def test_rerank_skips_invalid_scores() -> None:
+    a, b = _chunk("A"), _chunk("B")
+    fake = _FakeChatClient(
+        '{"scores": [{"index": 1, "score": 7}, {"index": 99, "score": 10},'
+        ' {"index": 2, "score": "high"}, {"index": 0, "score": 5}]}'
+    )
+
+    ranked = asyncio.run(
+        rerank("q", [a, b], client=fake, model="fake", limit=5)  # type: ignore[arg-type]
+    )
+
+    assert [item.chunk.title for item in ranked] == ["A"]
+
+
+def test_rerank_returns_empty_without_candidates() -> None:
+    fake = _FakeChatClient('{"scores": []}')
+
+    ranked = asyncio.run(
+        rerank("q", [], client=fake, model="fake")  # type: ignore[arg-type]
+    )
+
+    assert ranked == []
+    assert fake.requests == []
