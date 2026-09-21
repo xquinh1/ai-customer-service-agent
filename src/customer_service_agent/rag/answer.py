@@ -8,6 +8,7 @@ from customer_service_agent.core.config import get_settings
 from customer_service_agent.knowledge.embeddings import EmbeddingService
 from customer_service_agent.rag.context_builder import build_context
 from customer_service_agent.rag.fusion import hybrid_search
+from customer_service_agent.rag.reranking import rerank
 
 SYSTEM_PROMPT = """You are a Shopify support assistant.
     Answer the user's question using ONLY the documentation context provided.
@@ -39,7 +40,14 @@ async def answer_question(
         base_url=settings.openai_base_url,
     )
 
-    result = await hybrid_search(session, question, embedder=embedder, limit=limit)
+    candidates = await hybrid_search(session, question, embedder=embedder, limit=limit * 2)
+
+    ranked = await rerank(
+        question, candidates, client=client, model=settings.chat_model, limit=limit
+    )
+    result = [item.chunk for item in ranked]
+    if not result:
+        result = candidates[:limit]
 
     context, citations = build_context(result)
 
