@@ -16,7 +16,13 @@ from customer_service_agent.rag.retrieval import lexical_search
 
 
 def _chunk(title: str) -> DocumentChunk:
-    return DocumentChunk(id=uuid4(), content=title, source_url="https://u", title=title)
+    return DocumentChunk(
+        id=uuid4(),
+        content=title,
+        source_url="https://u",
+        title=title,
+        content_hash=f"hash-{title}",
+    )
 
 
 class _FakeChatClient:
@@ -35,8 +41,15 @@ class _FakeChatClient:
 
 def test_build_context_numbers_chunks_and_keeps_citations() -> None:
     chunks = [
-        DocumentChunk(content="Open the Orders page.", source_url="https://a", title="Refunds"),
-        DocumentChunk(content="Click Refund.", source_url="https://b", title=None),
+        DocumentChunk(
+            content="Open the Orders page.",
+            source_url="https://a",
+            title="Refunds",
+            content_hash="hash-1",
+        ),
+        DocumentChunk(
+            content="Click Refund.", source_url="https://b", title=None, content_hash="hash-2"
+        ),
     ]
 
     context, citations = build_context(chunks)
