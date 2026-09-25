@@ -8,6 +8,7 @@ from customer_service_agent.core.config import get_settings
 from customer_service_agent.knowledge.embeddings import EmbeddingService
 from customer_service_agent.rag.context_builder import build_context
 from customer_service_agent.rag.fusion import hybrid_search
+from customer_service_agent.rag.query_rewriter import rewrite_query
 from customer_service_agent.rag.reranking import rerank
 
 SYSTEM_PROMPT = """You are a Shopify support assistant.
@@ -28,6 +29,7 @@ class AnswerResult:
 async def answer_question(
     session: AsyncSession,
     question: str,
+    history: list[dict[str, str]] | None = None,
     embedder: EmbeddingService | None = None,
     chat_client: AsyncOpenAI | None = None,
     limit: int = 5,
@@ -39,6 +41,11 @@ async def answer_question(
         api_key=settings.openai_api_key,
         base_url=settings.openai_base_url,
     )
+
+    if history:
+        question = await rewrite_query(
+            question, history, client=client, model=settings.chat_model
+        )
 
     candidates = await hybrid_search(session, question, embedder=embedder, limit=limit * 2)
 
