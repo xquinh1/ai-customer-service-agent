@@ -11,6 +11,7 @@ from customer_service_agent.core.config import get_settings
 from customer_service_agent.db.models import Document, DocumentChunk
 from customer_service_agent.rag.context_builder import build_context
 from customer_service_agent.rag.fusion import reciprocal_rank_fusion
+from customer_service_agent.rag.query_rewriter import rewrite_query
 from customer_service_agent.rag.reranking import rerank
 from customer_service_agent.rag.retrieval import lexical_search
 
@@ -196,3 +197,40 @@ def test_rerank_returns_empty_without_candidates() -> None:
 
     assert ranked == []
     assert fake.requests == []
+
+
+def test_rewrite_query_with_history() -> None:
+    fake = _FakeChatClient("How can I configure a discount code with an expiration date?")
+    history = [
+        {"role": "user", "content": "How do I create a discount code?"},
+        {"role": "assistant", "content": "You can create them from the Discounts page."},
+    ]
+
+    rewritten = asyncio.run(
+        rewrite_query("Can it expire tomorrow?", history, client=fake, model="fake")  # type: ignore[arg-type]
+    )
+
+    assert "expiration date" in rewritten
+    assert fake.requests
+
+
+def test_rewrite_query_without_history_short_circuits() -> None:
+    fake = _FakeChatClient("KHONG DUOC GOI")
+
+    rewritten = asyncio.run(
+        rewrite_query("How do I refund?", [], client=fake, model="fake")  # type: ignore[arg-type]
+    )
+
+    assert rewritten == "How do I refund?"
+    assert fake.requests == []
+
+
+def test_rewrite_query_falls_back_on_empty_answer() -> None:
+    fake = _FakeChatClient("")
+    history = [{"role": "user", "content": "How do I create a discount code?"}]
+
+    rewritten = asyncio.run(
+        rewrite_query("How do I refund?", history, client=fake, model="fake")  # type: ignore[arg-type]
+    )
+
+    assert rewritten == "How do I refund?"
