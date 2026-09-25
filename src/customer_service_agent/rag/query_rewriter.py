@@ -6,6 +6,7 @@ into a standalone, self-contained query that captures the full intent.
 If the latest question is already self-contained, return it unchanged.
 Return ONLY the rewritten question, no extra text, no formatting."""
 
+
 async def rewrite_query(
     question: str,
     history: list[dict[str, str]],
@@ -19,12 +20,9 @@ async def rewrite_query(
         return question
 
     recent = history[-max_history:]
-    conversation = "\n".join(
-        f"{msg['role'].capitalize()}: {msg['content']}" for msg in recent
-    )
+    conversation = "\n".join(f"{msg['role'].capitalize()}: {msg['content']}" for msg in recent)
     user_prompt = (
-        f"Conversation:\n{conversation}"
-        f"\n\nLatest question: {question}\n\nRewritten question:"
+        f"Conversation:\n{conversation}\n\nLatest question: {question}\n\nRewritten question:"
     )
     completion = await client.chat.completions.create(
         model=model,

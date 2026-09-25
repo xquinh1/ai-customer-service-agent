@@ -43,9 +43,7 @@ async def answer_question(
     )
 
     if history:
-        question = await rewrite_query(
-            question, history, client=client, model=settings.chat_model
-        )
+        question = await rewrite_query(question, history, client=client, model=settings.chat_model)
 
     candidates = await hybrid_search(session, question, embedder=embedder, limit=limit * 2)
 
